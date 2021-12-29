@@ -8,7 +8,8 @@ value for a success or some error object to convey the cause of a failure.
 
 This repository provides such a result class: `result::result<T, U>`.
 
-Currently header-only and __very much a work in progress__. 
+Currently __very much a work in progress__. This is mainly on here to share the
+code with myself, but feel free to do with it what you want.
 
 ## Why use results instead of exceptions?
 
