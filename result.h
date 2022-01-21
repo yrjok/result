@@ -13,7 +13,7 @@ template <class T> class wrapper {
   static_assert(not std::is_reference<T>::value,
                 "this wrapper stubbornly refuses to wrap references");
 
-protected:
+public:
   /// Converting copy constructor
   wrapper(T const &value) : value_(value) {}
 
@@ -24,7 +24,6 @@ protected:
   template <class... Args>
   wrapper(Args... args) : value_(std::forward<Args>(args)...) {}
 
-public:
   T const &operator*() const { return value_; }
   T &operator*() { return value_; }
 
@@ -47,23 +46,21 @@ template <> class wrapper<void> {};
 // the same type.
 template <class T> class success : public detail::wrapper<T> {
 public:
-  // Forward to wrapper construction
-  template <class... Args>
-  success(Args... args) : detail::wrapper<T>(std::forward<Args>(args)...) {}
+  using detail::wrapper<T>::wrapper;
 };
 
 template <class T> class error : public detail::wrapper<T> {
 public:
-  // Forward to wrapper construction
-  template <class... Args>
-  error(Args... args) : detail::wrapper<T>(std::forward<Args>(args)...) {}
+  using detail::wrapper<T>::wrapper;
 };
 
 template <class S, class E> class result {
 public:
+  // Typedefs
   using success_type = class success<S>;
-  using error_type = class error<S>;
+  using error_type = class error<E>;
 
+  // Functions
   result() = delete; // Do not allow "empty" results
 
   // Allow implicit conversions from success/error to result
@@ -78,12 +75,32 @@ public:
     return std::holds_alternative<error_type>(contents_);
   }
 
-  S const &success() const { return std::get<success_type>(contents_).value(); }
-  S &success() { return std::get<success_type>(contents_).value(); }
+  template<class T>
+  using IsNotVoid = std::negation<std::is_void<T>>;
+
+  template<class T=std::decay_t<S>,
+    class sfinae=std::enable_if_t<IsNotVoid<T>::value, T>>
+  T const &get() const { return std::get<success_type>(contents_).value(); }
+
+  template<class T=std::decay_t<S>,
+    class sfinae=std::enable_if_t<IsNotVoid<T>::value, T>>
+  T &get() { return std::get<success_type>(contents_).value(); }
+
+  template<class T=std::decay_t<S>,
+    class sfinae=std::enable_if_t<IsNotVoid<T>::value, T>>
+  T get_or(T alternative) const {
+    if (is_success()) {
+      return get();
+    } else {
+      return alternative;
+    }
+  }
+
   E const &error() const { return std::get<error_type>(contents_).value(); }
   E &error() { return std::get<error_type>(contents_).value(); }
 
 private:
+  // Data members
   std::variant<success_type, error_type> contents_;
 };
 
